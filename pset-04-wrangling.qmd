@@ -9,6 +9,8 @@ In this problem set we will learn how to extract and wrangle data from the data 
 
 1. Get an API key from the US Census at <https://api.census.gov/data/key_signup.html>. You can't share this public key. But your code has to run on a TFs computer. Assume the TF will have a file in their working directory named `census-key.R` with the following one line of code:
 
+API code: 317018bb1d3344b71dc8a6cdc30ec9eb7920df3b
+
 ```
 census_key <- "A_CENSUS_KEY_THAT_WORKS"
 ```
@@ -16,7 +18,7 @@ census_key <- "A_CENSUS_KEY_THAT_WORKS"
 Write a first line of code for your problem set that defines `census_key` by running the code in the file `census-key.R`.
 
 ```{r}
-## Your code here
+source("census-key.R")
 ```
 
 2. The [US Census API User Guide](https://www.census.gov/content/dam/Census/data/developers/api-user-guide/api-user-guide.pdf)

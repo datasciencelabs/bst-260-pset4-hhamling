@@ -79,14 +79,20 @@ population <- resp_body_json(response, simplifyVector = TRUE)
 #| warning: false
 library(tidyverse)
 library(janitor)
-#population <- population |> ## Use janitor row to names function
-  # convert to tibble
-  # remove stat column
-  # rename state column to state_name
+library(tibble)
+population <- population |> as_tibble() |> row_to_names(1, remove_row = TRUE, remove_rows_above = TRUE) |> rename(state_name = NAME, `2020` = POP_2020, `2021` = POP_2021) |> select(-4) |> arrange(state_name) |>  mutate(across(c("2020","2021"), as.numeric)) |> 
+  mutate(state = case_when(
+    state_name %in% state.name ~ state.abb[match(state_name,state.name)],
+    state_name == "District of Columbia" ~ "DC",
+    state_name == "Puerto Rico" ~ "PR")) |> pivot_longer(c(`2020`,`2021`), names_to = "year", values_to = "population")
+  ## Use janitor row to names function (done)
+  # convert to tibble (done)
+  # remove stat column (done)
+  # rename state column to state_name (done)
   # use pivot_longer to tidy
-  # remove POP_ from year
-  # parese all relevant colunns to numeric
-  # add state abbreviations using state.abb variable
+  # remove POP_ from year (done)
+  # parese all relevant columns to numeric (done)
+  # add state abbreviations using state.abb variable (done)
   # use case_when to add abbreviations for DC and PR
 ```
 

@@ -48,7 +48,6 @@ request <- request("https://api.census.gov/data/2021/pep/population?get=POP_2020
     `for` = "state:*",
     key = census_key
   )
-request
 ```
 
 3. Make a request to the US Census API using the `request` object. Save the response to and object named `response`. Check the response status of your request and make sure it was successful. You can learn about _status codes_ [here](https://en.wikipedia.org/wiki/List_of_HTTP_status_codes).
@@ -82,9 +81,10 @@ library(janitor)
 library(tibble)
 population <- population |> as_tibble() |> row_to_names(1, remove_row = TRUE, remove_rows_above = TRUE) |> rename(state_name = NAME, `2020` = POP_2020, `2021` = POP_2021) |> select(-4) |> arrange(state_name) |>  mutate(across(c("2020","2021"), as.numeric)) |> 
   mutate(state = case_when(
-    state_name %in% state.name ~ state.abb[match(state_name,state.name)],
+    state_name %in% state.name ~ state.abb[match(state_name,state.name)], 
     state_name == "District of Columbia" ~ "DC",
-    state_name == "Puerto Rico" ~ "PR")) |> pivot_longer(c(`2020`,`2021`), names_to = "year", values_to = "population")
+    state_name == "Puerto Rico" ~ "PR")) |> 
+  pivot_longer(c(`2020`,`2021`), names_to = "year", values_to = "population")
   ## Use janitor row to names function (done)
   # convert to tibble (done)
   # remove stat column (done)
@@ -106,7 +106,7 @@ population <- population |> as_tibble() |> row_to_names(1, remove_row = TRUE, re
   # flip coordinates
   # facet by year
 
-population |> ggplot(aes(x = reorder(state_name, population), y = population)) + geom_col() + facet_wrap(~ year) + coord_flip() + labs(x = "Population", y = "State", title = "State populations by year") 
+population |> ggplot(aes(x = reorder(state_name, population), y = population)) + geom_col() + facet_wrap(~ year) + coord_flip() + labs(x = "State", y = "Population", title = "State populations by year") 
 ```
 
 
@@ -126,24 +126,15 @@ library(purrr)
 # regions <- use jsonlit JSON parser 
 # regions <- convert list to data frame. You can use map_df in purrr package 
 url <- "https://github.com/datasciencelabs/2025/raw/refs/heads/main/data/regions.json"
-json_dat <- fromJSON(url)
+regions_dat <- fromJSON(url) 
 
-regions1 <- fromJSON(url) |> separate_longer_delim(states, delim = ",") #doesn't unnest the list
-
-regions <- map_dfr(fromJSON(url, simplifyVector = FALSE), function(region){
-  tibble(region_name = region$name,
-         state_name = region$states)
-}
-  )
-
-regions <- fromJSON(url) |> unnest(states) #not sure why we can't use unnest
+(regions <- regions_dat |> mutate(region = as.numeric(region), region_name = as.character(region_name), states = as.character(states)) |> separate_rows(states, sep = ", ") |> rename(state_name = states) |> mutate(state_name = str_remove_all(state_name, 'c\\("|"\\)|"')) |> mutate(region_name = ifelse(region_name == "New York and New Jersey, Puerto Rico, Virgin Islands", "NY NJ PR VI", region_name)))
 ```
 
 9. Add a region and region name columns to the `population` data frame.
 
 ```{r}
-# population <- 
-#left_join(regions, by = "state_name")
+population_joined <- population |> left_join(regions, by = "state_name")
 ```
 
 
@@ -165,23 +156,35 @@ We see exactly 1,000 rows. We should be seeing over $52 \times 3$ rows per state
 library(lubridate)
 api <- "https://data.cdc.gov/resource/pwn4-m3yp.json"
 
-cases_raw <- request(api) |>
+cases <- request(api) |>
   req_url_query(`$limit` = 10000000000) |>
-  req_perform() |> resp_body_json(simplifyVector = TRUE) |> select("state", "end_date", "tot_cases") |> mutate(end_date = ymd_hms(end_date)) |> rename(cases = tot_cases, date = end_date)
+  req_perform() |> resp_body_json(simplifyVector = TRUE) |> select("state", "end_date", "new_cases") |> mutate(end_date = ymd_hms(end_date), new_cases = as.numeric(new_cases)) |> rename(cases = new_cases, date = end_date) |> filter(!is.na(state) & !is.na(cases) & !is.na(cases))
 ```
 
 
 12. For 2020 and 2021, make a time series plot of cases per 100,000 versus time for each state. Stratify the plot by region name. Make sure to label your graph appropriately. 
 
 ```{r}
-cases <- cases_raw
+(cases |> filter(year(date) == 2020 | year(date) == 2021) |> inner_join(population_joined, by = "state") |> group_by(state, date, region_name) |> summarize(case_per_100k = (cases/population)*100000) |> ggplot(aes(x = date, y = case_per_100k, color = state)) +
+  geom_line(linewidth = 0.3) +
+  facet_wrap(~region_name, ncol = 2) +
+   labs(x = "Time",
+        y = "Cases per 100,000",
+        title = "COVID-19 Cases per 100,000 People by Region, 2020-2021",
+        color = "State")) 
+
+#inner_join: don't need to filter na
+#create variable called cases per 100k
+
+#ggplot(), facet_wrap by region name
 ```
 
 13. The dates in the `cases` dataset are stored as character strings. Use the **lubridate** package to properly parse the `date` column, then create a summary table showing the total COVID-19 cases by month and year for 2020 and 2021. The table should have columns for year, month (as month name), and total cases across all states. Order by year and month. Use the **knitr** package and `kable()` function to display the results as a formatted table.
 
 ```{r}
 library(knitr)
-cases |> mutate(year = year(date), month = month(date, label = TRUE), cases = as.numeric(cases)) |> select(state, year, month, cases) |> filter(year == 2020 | year == 2021) |> group_by(year, month) |> summarize(total_cases = sum(cases,na.rm = TRUE)) |> kable(col.names = c("Year", "Month", "Total Cases"))
+cases |> mutate(year = year(date), month = month(date, label = TRUE), cases = as.numeric(cases)) |> select(state, year, month, cases) |> filter(year == 2020 | year == 2021) |> group_by(year, month) |> summarize(total_cases = sum(cases,na.rm = TRUE)) |> #arrange
+  kable(col.names = c("Year", "Month", "Total Cases"))
 ```
 
 14. The following URL provides additional COVID-19 data from the CDC in JSON format:
@@ -198,13 +201,13 @@ deaths <- request(deaths_url) |>
   req_url_query(`$limit` = 10000000000) |>
   req_perform() |> resp_body_json(simplifyVector = TRUE) |>
   select(state, end_date, total_deaths) |> rename(date = end_date, deaths = total_deaths) |>
-  mutate(date = ymd_hms(date), deaths = as.numeric(deaths))
+  mutate(date = ymd_hms(date), deaths = as.numeric(deaths)) |> filter(!is.na(deaths)) #drop NA
 ```
 
 15. Using the `deaths` dataset you created, make a bar plot showing the total COVID-19 deaths by state. Show only the top 10 states with the highest death counts. Order the bars from highest to lowest and use appropriate labels and title.
 
 ```{r}
-deaths |> filter(state!= "United States") |> group_by(state) |> summarize(total_deaths = sum(deaths, na.rm = TRUE)) |> arrange(desc(total_deaths)) |> slice_head(n=10) |> 
+deaths |> filter(state!= "United States") |> group_by(state) |> summarize(total_deaths = sum(deaths, na.rm = TRUE)) |> arrange(desc(total_deaths)) |> head(n=10) |> 
   ggplot(aes(x = reorder(state,total_deaths), y = total_deaths)) +
   geom_col() + 
   coord_flip() +

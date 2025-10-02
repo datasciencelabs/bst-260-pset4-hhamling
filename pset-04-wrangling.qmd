@@ -200,15 +200,15 @@ Use **httr2** to download COVID-19 death data from this endpoint. Make sure to r
 deaths <- request(deaths_url) |>
   req_url_query(`$limit` = 10000000000) |>
   req_perform() |> resp_body_json(simplifyVector = TRUE) |>
-  select(state, end_date, total_deaths) |> rename(date = end_date, deaths = total_deaths) |>
+  select(state, end_date, covid_19_deaths) |> rename(date = end_date, deaths = covid_19_deaths) |>
   mutate(date = ymd_hms(date), deaths = as.numeric(deaths)) |> filter(!is.na(deaths)) #drop NA
 ```
 
 15. Using the `deaths` dataset you created, make a bar plot showing the total COVID-19 deaths by state. Show only the top 10 states with the highest death counts. Order the bars from highest to lowest and use appropriate labels and title.
 
 ```{r}
-deaths |> filter(state!= "United States") |> group_by(state) |> summarize(total_deaths = sum(deaths, na.rm = TRUE)) |> arrange(desc(total_deaths)) |> head(n=10) |> 
-  ggplot(aes(x = reorder(state,total_deaths), y = total_deaths)) +
+deaths |> filter(state!= "United States" & state!= "New York City") |> group_by(state) |> summarize(covid_deaths = sum(deaths, na.rm = TRUE)) |> arrange(desc(covid_deaths)) |> head(n=10) |> 
+  ggplot(aes(x = reorder(state,covid_deaths), y = covid_deaths)) +
   geom_col() + 
   coord_flip() +
   labs(x = "State", y = "Total Deaths", title = "Top 10 COVID-19 Deaths by State")

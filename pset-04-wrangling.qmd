@@ -48,6 +48,7 @@ request <- request("https://api.census.gov/data/2021/pep/population?get=POP_2020
     `for` = "state:*",
     key = census_key
   )
+
 ```
 
 3. Make a request to the US Census API using the `request` object. Save the response to and object named `response`. Check the response status of your request and make sure it was successful. You can learn about _status codes_ [here](https://en.wikipedia.org/wiki/List_of_HTTP_status_codes).
